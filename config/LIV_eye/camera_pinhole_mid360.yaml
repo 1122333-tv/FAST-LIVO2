@@ -1,0 +1,12 @@
+cam_model: Pinhole
+cam_width: 1280
+cam_height: 1024
+scale: 1.0 # 如果你想缩放图像一半，保持原图就填 1.0
+cam_fx: 1302.43823
+cam_fy: 1303.02997
+cam_cx: 629.74245
+cam_cy: 468.34067
+cam_d0: -0.079315         # k1
+cam_d1: 0.145660          # k2
+cam_d2: -0.002655         # p1
+cam_d3: -0.000987         # p2

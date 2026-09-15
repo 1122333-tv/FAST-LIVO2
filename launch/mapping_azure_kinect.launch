@@ -1,0 +1,34 @@
+<launch>
+<!-- Launch file for Livox AVIA LiDAR -->
+	<arg name="dataset" default="TEST_ROOM" />
+	<arg name="rviz" default="true" />
+	<arg name="camera_config"
+		default="$(find fast_livo)/config/$(arg dataset)/camera_azure_kinect.yaml" />
+
+	<rosparam command="load" file="$(find fast_livo)/config/$(arg dataset)/azure_kinect.yaml" />
+
+	<!-- 启动 image_proc/rectify 节点 -->
+	<node name="image_rectifier" pkg="image_proc" type="image_proc">
+		<remap from="image_raw" to="/kinect/rgb/image_raw"/>
+		<remap from="camera_info" to="/kinect/rgb/camera_info"/>
+		<remap from="image_rect_color"  to="/kinect/rgb/image_rect" />
+	</node>
+
+
+	<node pkg="fast_livo"
+		type="fastlivo_mapping" name="laserMapping" output="screen"
+		args="-camera_config $(arg camera_config)">
+		<!-- 设置glibc malloc优化 -->
+		<env name="MALLOC_TRIM_THRESHOLD_" value="1073741824" />
+		<env name="MALLOC_ARENA_MAX" value="4" />
+	</node>
+	
+	<group if="$(arg rviz)">
+		<node launch-prefix="nice" pkg="rviz" type="rviz" name="fast_livo2_rviz" args="-d $(find fast_livo)/rviz_cfg/fast_livo2.rviz" />
+	</group>
+	
+	<!-- <node pkg="image_transport" type="republish" name="republish" args="compressed in:=/kinect/rgb/image_raw raw out:=/kinect/rgb/image_raw" output="screen" respawn="true"/> -->
+
+launch-prefix="gdb -ex run --args"
+launch-prefix="valgrind --leak-check=full"
+</launch> 	

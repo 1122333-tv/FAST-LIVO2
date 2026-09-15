@@ -1,0 +1,99 @@
+common:
+  # img_topic: "/kinect/rgb/image_raw"
+  img_topic: "/kinect/rgb/image_raw" #"/kinect/rgb/image_rect"
+  lid_topic: "/kinect/points2"
+  imu_topic: "/kinect/imu"
+  img_en: 1
+  lidar_en: 1
+  ros_driver_bug_fix: false
+
+extrin_calib:
+  #T_imu_from_lidar : T_(dk_imu_link)_from_(dk_depth_camera_link)
+  extrinsic_T: [-0.051, 0.004, 0.001] 
+  extrinsic_R: [ -0.0022165,  0.1077417, -0.9941764,
+                -0.9999760, -0.0067630,  0.0014965,
+                -0.0065624,  0.9941559,  0.1077541 ]
+  # T_camera_from_lidar : T_(dk_rgb_camera_link)_from_(dk_depth_camera_link)
+  Rcl: [  0.9999645,  0.0083988, -0.0006529,
+         -0.0083077,  0.9960134,  0.0888159,
+          0.0013963, -0.0888073,  0.9960479 ]
+  Pcl: [-0.032, -0.002, 0.004]
+
+time_offset: 
+  imu_time_offset: 0.0
+  img_time_offset: -0.04 # TODO: 0.1
+  exposure_time_init: 0.0
+
+preprocess:
+  point_filter_num: 7 # TODO
+  filter_size_surf: 0.1
+  lidar_type: 8 # Livox AVIA = 1,  VELO16 = 2,  OUST64 = 3,  L515 = 4,  XT32 = 5,  PANDAR128 = 6,  Robosense Airy = 7, AZURE_KINECT = 8
+  scan_line: 576
+  blind: 0.2
+
+vio:
+  max_iterations: 5
+  outlier_threshold: 1000 # 78 100 156 #100 200 500 700 infinite
+  img_point_cov: 100 # 100 1000 
+  patch_size: 8
+  patch_pyrimid_level: 4
+  normal_en: true
+  raycast_en: false
+  inverse_composition_en: false
+  exposure_estimate_en: true
+  inv_expo_cov: 0.1
+
+imu:
+  imu_en: true
+  imu_int_frame: 100
+  acc_cov: 0.02 #0.5 # 0.2
+  gyr_cov: 0.01 #0.3 # 0.5
+  b_acc_cov: 0.0001 # 0.0001 # 0.1
+  b_gyr_cov: 0.0001 # 0.0001 # 0.1
+  imu_acc_unit: "normal" # normal or g
+
+lio:
+  max_iterations: 5
+  dept_err: 0.02 # TODO 0.02
+  beam_err: 0.05 # TODO 0.05
+  min_eigen_value: 0.0025 # 0.005
+  voxel_size: 0.5 # TODO 0.5
+  max_layer: 2
+  max_points_num: 50
+  layer_init_num: [5, 5, 5, 5, 5]
+
+local_map:
+  map_sliding_en: false
+  half_map_size: 100
+  sliding_thresh: 8
+
+uav:
+  imu_rate_odom: false
+  gravity_align_en: true
+
+publish:
+  dense_map_en: true
+  pub_effect_point_en: false
+  pub_plane_en: false
+  pub_scan_num: 1
+  blind_rgb_points: 0.0
+
+evo:
+  seq_name: "Azure_Kinect"
+  pose_output_en: false
+
+pcd_save:
+  pcd_save_en: false #true
+  type: 0 # 0: World Frame, 1: Body Frame;
+  colmap_output_en: false # need to set interval = -1
+  filter_size_pcd: 0.05
+  interval: -1
+  # how many LiDAR frames saved in each pcd file;
+  # -1 : all frames will be saved in ONE pcd file, may lead to memory crash when having too much frames.
+
+image_save:
+  img_save_en: false
+  interval: 1
+
+lru_config:
+  lru_size: 1000000
