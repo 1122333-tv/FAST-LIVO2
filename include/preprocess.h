@@ -133,6 +133,21 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(
         double, timestamp, timestamp)(std::uint16_t, ring, ring))
 /*****************/
 
+/*** Livox MID360 ***/
+struct LivoxPointXYZITLT
+{
+    PCL_ADD_POINT4D
+    PCL_ADD_INTENSITY;
+    std::uint8_t tag;        // Livox point tag   
+    std::uint8_t line;       // Laser line id     
+    double timestamp;   // Timestamp of point (unit: ns)
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    LivoxPointXYZITLT() {}
+} EIGEN_ALIGN16;
+POINT_CLOUD_REGISTER_POINT_STRUCT(LivoxPointXYZITLT,
+                                  (float, x, x)(float, y, y)(float, z, z)(float, intensity, intensity)(std::uint8_t, tag, tag)(std::uint8_t, line, line)(double, timestamp, timestamp))
+/*****************/
+
 class Preprocess {
  public:
   //   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -164,6 +179,8 @@ class Preprocess {
   void Pandar128Handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
   void RobosenseHandler(const sensor_msgs::PointCloud2::ConstPtr &msg);
   void L515Handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
+  void AzureKinectHandler(const sensor_msgs::PointCloud2::ConstPtr &msg);
+  void Mid360Handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
   void GiveFeature(PointCloudXYZIN &pl, std::vector<orgtype> &types);
   void PubFunc(PointCloudXYZIN &pl, const ros::Time &ct);
   int PlaneJudge(const PointCloudXYZIN &pl, std::vector<orgtype> &types, uint i,

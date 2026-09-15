@@ -84,6 +84,7 @@ void LIVMapper::ReadParameters(ros::NodeHandle &nh) {
   nh.param<double>("imu/gyr_cov", gyr_cov_, 1.0);
   nh.param<double>("imu/acc_cov", acc_cov_, 1.0);
   nh.param<int>("imu/imu_int_frame", imu_int_frame_, 3);
+  nh.param<std::string>("imu/imu_acc_unit", imu_acc_unit, "g");
   nh.param<bool>("imu/gravity_est_en", gravity_est_en_, true);
   nh.param<bool>("imu/ba_bg_est_en", ba_bg_est_en_, true);
 
@@ -871,6 +872,13 @@ void LIVMapper::ImuCbk(const sensor_msgs::Imu::ConstPtr &msg_in) {
 
   last_timestamp_imu_ = timestamp;
 
+  if(imu_acc_unit == "normal") // normal means acc unit is m/s^2, FAST-LIVO2 needs imu acc unit as "g"
+  {
+    msg->linear_acceleration.x = msg->linear_acceleration.x / G_m_s2; // TODO: check
+    msg->linear_acceleration.y = msg->linear_acceleration.y / G_m_s2; // TODO: check
+    msg->linear_acceleration.z = msg->linear_acceleration.z / G_m_s2; // TODO: check
+  }
+  
   imu_buffer_.push_back(msg);
   // cout<<"got imu: "<<timestamp<<" imu size "<<imu_buffer.size()<<endl;
   mtx_buffer_.unlock();

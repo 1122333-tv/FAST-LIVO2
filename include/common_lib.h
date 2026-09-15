@@ -45,7 +45,9 @@ enum LID_TYPE {
   L515 = 4,
   XT32 = 5,
   PANDAR128 = 6,
-  ROBOSENSE = 7
+  ROBOSENSE = 7,
+  AZURE_KINECT = 8,
+  MID360 = 9,
 };
 enum SLAM_MODE { ONLY_LIO = 0, LIVO = 1};
 

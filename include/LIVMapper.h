@@ -122,6 +122,7 @@ class LIVMapper {
        ba_bg_est_en_ = true;
   bool dense_map_en = false;
   int img_en_ = 1, imu_int_frame_ = 3;
+  std::string imu_acc_unit = "g";
   bool normal_en_ = true;
   bool exposure_estimate_en_ = false;
   double exposure_time_init_ = 0.0;

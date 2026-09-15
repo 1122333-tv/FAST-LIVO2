@@ -11,6 +11,7 @@ which is included as part of this source code package.
 */
 
 #include "preprocess.h"
+#include <pcl/filters/filter.h>
 
 #include "omp.h"
 
@@ -85,6 +86,14 @@ void Preprocess::Process(const sensor_msgs::PointCloud2::ConstPtr &msg,
       RobosenseHandler(msg);
       break;
 
+    case AZURE_KINECT:
+      AzureKinectHandler(msg);
+      break;
+
+    case MID360:
+      Mid360Handler(msg);
+      break;
+
     default:
       printf("Error LiDAR Type: %d \n", lidar_type_);
       break;
@@ -100,7 +109,7 @@ void Preprocess::AviaHandler(
   double t1 = omp_get_wtime();
   int plsize = msg->point_num;
   printf("[ Preprocess ] Input point number: %d \n", plsize);
-  // printf("point_filter_num: %d\n", point_filter_num);
+  // printf("point_filter_num_: %d\n", point_filter_num_);
 
   pl_corn_.reserve(plsize);
   pl_surf_.reserve(plsize);
@@ -154,7 +163,7 @@ void Preprocess::AviaHandler(
       types[plsize].range =
           pl[plsize].x * pl[plsize].x + pl[plsize].y * pl[plsize].y;
       GiveFeature(pl, types);
-      // pl_surf += pl;
+      // pl_surf_ += pl;
     }
     time += omp_get_wtime() - t0;
     printf("Feature extraction time: %lf \n", time / count);
@@ -180,8 +189,8 @@ void Preprocess::AviaHandler(
           pl_full_[i].curvature =
               fabs(pl_full_[i].curvature) < 1.0 ? pl_full_[i].curvature : 0.0;
         else {
-          // if(fabs(pl_full[i].curvature - pl_full[i - 1].curvature) > 1.0)
-          // ROS_ERROR("time jump: %f", fabs(pl_full[i].curvature - pl_full[i -
+          // if(fabs(pl_full_[i].curvature - pl_full_[i - 1].curvature) > 1.0)
+          // ROS_ERROR("time jump: %f", fabs(pl_full_[i].curvature - pl_full_[i -
           // 1].curvature));
           pl_full_[i].curvature =
               fabs(pl_full_[i].curvature - pl_full_[i - 1].curvature) < 1.0
@@ -195,14 +204,65 @@ void Preprocess::AviaHandler(
                   pl_full_[i].z * pl_full_[i].z >=
               blind_sqr_) {
             pl_surf_.push_back(pl_full_[i]);
-            // if (i % 100 == 0 || i == 0) printf("pl_full[i].curvature: %f \n",
-            // pl_full[i].curvature);
+            // if (i % 100 == 0 || i == 0) printf("pl_full_[i].curvature: %f \n",
+            // pl_full_[i].curvature);
           }
         }
       }
     }
   }
   printf("[ Preprocess ] Output point number: %zu \n", pl_surf_.points.size());
+}
+
+void Preprocess::AzureKinectHandler(const sensor_msgs::PointCloud2::ConstPtr &msg)
+{
+  pl_surf_.clear();
+  pl_corn_.clear();
+  pl_full_.clear();
+  pcl::PointCloud<pcl::PointXYZRGB> pl_orig;
+  pcl::fromROSMsg(*msg, pl_orig);
+  int plsize = pl_orig.size();
+  pl_corn_.reserve(plsize);
+  pl_surf_.reserve(plsize);
+
+  double time_stamp = msg->header.stamp.toSec();
+  // cout << "===================================" << endl;
+  // printf("Pt size = %d, N_SCANS = %d\r\n", plsize, N_SCANS);
+  for (int i = 0; i < pl_orig.points.size(); i++)
+  {
+    if (i % point_filter_num_ != 0) continue;
+    
+    if(!std::isfinite(pl_orig.points[i].x)
+     || !std::isfinite(pl_orig.points[i].y)
+     || !std::isfinite(pl_orig.points[i].z)
+     || !std::isfinite(pl_orig.points[i].r)
+     || !std::isfinite(pl_orig.points[i].g)
+     || !std::isfinite(pl_orig.points[i].b))
+     {
+      continue;
+     }
+
+    double range = pl_orig.points[i].x * pl_orig.points[i].x + pl_orig.points[i].y * pl_orig.points[i].y + pl_orig.points[i].z * pl_orig.points[i].z;
+
+    if (range < blind_sqr_) continue;
+
+    Eigen::Vector3d pt_vec;
+    PointXYZIN added_pt;
+    added_pt.x = pl_orig.points[i].x;
+    added_pt.y = pl_orig.points[i].y;
+    added_pt.z = pl_orig.points[i].z;
+    added_pt.normal_x = pl_orig.points[i].r;
+    added_pt.normal_y = pl_orig.points[i].g;
+    added_pt.normal_z = pl_orig.points[i].b;
+
+    added_pt.curvature = 0.0;
+    pl_surf_.points.push_back(added_pt);
+  }
+
+
+  std::cout << "pl size:: " << pl_orig.points.size() << ", after: " << pl_surf_.points.size() << std::endl;
+  // pub_func(pl_surf_, pub_full, msg->header.stamp);
+  // pub_func(pl_surf_, pub_corn, msg->header.stamp);
 }
 
 void Preprocess::L515Handler(const sensor_msgs::PointCloud2::ConstPtr &msg) {
@@ -241,8 +301,8 @@ void Preprocess::L515Handler(const sensor_msgs::PointCloud2::ConstPtr &msg) {
   }
 
   std::cout << "pl size:: " << pl_orig.points.size() << std::endl;
-  // pub_func(pl_surf, pub_full, msg->header.stamp);
-  // pub_func(pl_surf, pub_corn, msg->header.stamp);
+  // pub_func(pl_surf_, pub_full, msg->header.stamp);
+  // pub_func(pl_surf_, pub_corn, msg->header.stamp);
 }
 
 void Preprocess::Oust64Handler(const sensor_msgs::PointCloud2::ConstPtr &msg) {
@@ -339,8 +399,8 @@ void Preprocess::Oust64Handler(const sensor_msgs::PointCloud2::ConstPtr &msg) {
                 return a.curvature < b.curvature;
               });
   }
-  // pub_func(pl_surf, pub_full, msg->header.stamp);
-  // pub_func(pl_surf, pub_corn, msg->header.stamp);
+  // pub_func(pl_surf_, pub_full, msg->header.stamp);
+  // pub_func(pl_surf_, pub_corn, msg->header.stamp);
 }
 
 #define MAX_LINE_NUM 64
@@ -504,9 +564,9 @@ void Preprocess::VelodyneHandler(
       }
     }
   }
-  // pub_func(pl_surf, pub_full, msg->header.stamp);
-  // pub_func(pl_surf, pub_surf, msg->header.stamp);
-  // pub_func(pl_surf, pub_corn, msg->header.stamp);
+  // pub_func(pl_surf_, pub_full, msg->header.stamp);
+  // pub_func(pl_surf_, pub_surf, msg->header.stamp);
+  // pub_func(pl_surf_, pub_corn, msg->header.stamp);
 }
 
 void Preprocess::Pandar128Handler(
@@ -551,17 +611,17 @@ void Preprocess::Pandar128Handler(
   // sort the points using the comparison function
   std::sort(pl_surf_.points.begin(), pl_surf_.points.end(), comparePoints);
 
-  // cout << GREEN << "pl_surf.points[0].timestamp: " <<
-  // pl_surf.points[0].curvature << RESET << endl; cout << GREEN <<
-  // "pl_surf.points[1000].timestamp: " << pl_surf.points[1000].curvature <<
-  // RESET << endl; cout << GREEN << "pl_surf.points[5000].timestamp: " <<
-  // pl_surf.points[5000].curvature << RESET << endl; cout << GREEN <<
-  // "pl_surf.points[10000].timestamp: " << pl_surf.points[10000].curvature <<
-  // RESET << endl; cout << GREEN << "pl_surf.points[20000].timestamp: " <<
-  // pl_surf.points[20000].curvature << RESET << endl; cout << GREEN <<
-  // "pl_surf.points[30000].timestamp: " << pl_surf.points[30000].curvature <<
-  // RESET << endl; cout << GREEN << "pl_surf.points[31000].timestamp: " <<
-  // pl_surf.points[31000].curvature << RESET << endl;
+  // cout << GREEN << "pl_surf_.points[0].timestamp: " <<
+  // pl_surf_.points[0].curvature << RESET << endl; cout << GREEN <<
+  // "pl_surf_.points[1000].timestamp: " << pl_surf_.points[1000].curvature <<
+  // RESET << endl; cout << GREEN << "pl_surf_.points[5000].timestamp: " <<
+  // pl_surf_.points[5000].curvature << RESET << endl; cout << GREEN <<
+  // "pl_surf_.points[10000].timestamp: " << pl_surf_.points[10000].curvature <<
+  // RESET << endl; cout << GREEN << "pl_surf_.points[20000].timestamp: " <<
+  // pl_surf_.points[20000].curvature << RESET << endl; cout << GREEN <<
+  // "pl_surf_.points[30000].timestamp: " << pl_surf_.points[30000].curvature <<
+  // RESET << endl; cout << GREEN << "pl_surf_.points[31000].timestamp: " <<
+  // pl_surf_.points[31000].curvature << RESET << endl;
 }
 
 void Preprocess::Xt32Handler(const sensor_msgs::PointCloud2::ConstPtr &msg) {
@@ -696,9 +756,9 @@ void Preprocess::Xt32Handler(const sensor_msgs::PointCloud2::ConstPtr &msg) {
       }
     }
   }
-  // pub_func(pl_surf, pub_full, msg->header.stamp);
-  // pub_func(pl_surf, pub_surf, msg->header.stamp);
-  // pub_func(pl_surf, pub_corn, msg->header.stamp);
+  // pub_func(pl_surf_, pub_full, msg->header.stamp);
+  // pub_func(pl_surf_, pub_surf, msg->header.stamp);
+  // pub_func(pl_surf_, pub_corn, msg->header.stamp);
 }
 
 void Preprocess::RobosenseHandler(
@@ -736,6 +796,42 @@ void Preprocess::RobosenseHandler(
             [](const PointXYZIN &a, const PointXYZIN &b) {
               return a.curvature < b.curvature;
             });
+}
+
+void Preprocess::Mid360Handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
+{
+  pl_surf_.clear();
+
+  pcl::PointCloud<LivoxPointXYZITLT> pl_orig;
+  pcl::fromROSMsg(*msg, pl_orig);
+  int plsize = pl_orig.size();
+  pl_surf_.reserve(plsize);
+
+  double time_head = pl_orig.points[0].timestamp;  // units: ns
+  for (int i = 0; i < plsize; ++i)
+  {
+    if (i % point_filter_num_ != 0) continue;
+
+    const auto& pt = pl_orig.points[i];
+    const double x = pt.x, y = pt.y, z = pt.z;
+    const double dist_sqr = x * x + y * y + z * z;
+    const bool is_valid = (dist_sqr >= blind_sqr_) && !std::isnan(x) && !std::isnan(y) && !std::isnan(z);
+    if (!is_valid) continue;
+
+    PointXYZIN added_pt;
+    added_pt.normal_x = 0;
+    added_pt.normal_y = 0;
+    added_pt.normal_z = 0;
+    added_pt.x = pt.x;
+    added_pt.y = pt.y;
+    added_pt.z = pt.z;
+    added_pt.intensity = pt.intensity;
+    added_pt.curvature = (pt.timestamp - time_head) * 1e-6; // units: ms
+    pl_surf_.points.push_back(added_pt);
+  }
+  std::sort(pl_surf_.points.begin(), pl_surf_.points.end(), [](const PointXYZIN &a, const PointXYZIN &b) {
+    return a.curvature < b.curvature;
+  });
 }
 
 void Preprocess::GiveFeature(pcl::PointCloud<PointXYZIN> &pl,
